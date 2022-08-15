@@ -276,12 +276,15 @@
   const {
     ArrayPrototypeForEach,
     FunctionPrototypeCall,
+    JSONStringify,
     Map,
     ObjectDefineProperty,
     ObjectFreeze,
+    ObjectPrototype,
     ObjectSetPrototypeOf,
     Promise,
     PromisePrototypeThen,
+    ReflectHas,
     Set,
     SymbolIterator,
     WeakMap,
@@ -453,6 +456,25 @@
         .finally(onFinally)
         .then(a, b)
     );
+
+  // Ignoring Object.prototype.toJSON if it is given.
+  primordials.SafeJSONStringify = (value, replacer, space) => {
+    if (
+      value === null ||
+      typeof value !== "object" ||
+      !ReflectHas(ObjectPrototype, "toJSON")
+    ) {
+      return JSONStringify(value, replacer, space);
+    }
+
+    const toJSON = ObjectPrototype.toJSON;
+    ObjectPrototype.toJSON = null;
+    try {
+      return JSONStringify(value, replacer, space);
+    } finally {
+      ObjectPrototype.toJSON = toJSON;
+    }
+  };
 
   // Create getter and setter for `queueMicrotask`, it hasn't been bound yet.
   let queueMicrotask = undefined;

@@ -26,9 +26,9 @@
     Int32ArrayPrototype,
     Int8ArrayPrototype,
     JSONParse,
-    JSONStringify,
     ObjectAssign,
     ObjectPrototypeIsPrototypeOf,
+    SafeJSONStringify,
     StringPrototypeToLowerCase,
     StringPrototypeToUpperCase,
     StringPrototypeCharCodeAt,
@@ -1358,7 +1358,7 @@
       if (format !== "jwk") {
         bytes = new Uint8Array(exportedKey);
       } else {
-        const jwk = JSONStringify(exportedKey);
+        const jwk = SafeJSONStringify(exportedKey);
         const ret = new Uint8Array(jwk.length);
         for (let i = 0; i < jwk.length; i++) {
           ret[i] = StringPrototypeCharCodeAt(jwk, i);

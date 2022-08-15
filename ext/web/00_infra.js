@@ -15,10 +15,10 @@
     ArrayPrototypeJoin,
     ArrayPrototypeMap,
     Error,
-    JSONStringify,
     NumberPrototypeToString,
     RegExp,
     SafeArrayIterator,
+    SafeJSONStringify,
     String,
     StringPrototypeCharAt,
     StringPrototypeCharCodeAt,
@@ -301,7 +301,7 @@
    * @returns {string}
    */
   function serializeJSValueToJSONString(value) {
-    const result = JSONStringify(value);
+    const result = SafeJSONStringify(value);
     if (result === undefined) {
       throw new TypeError("Value is not JSON serializable.");
     }
