@@ -1140,13 +1140,12 @@ function access(
     mode = fsConstants.F_OK;
   }
 
-  // deno-lint-ignore deno-internal/prefer-primordials
-  path = getValidatedPath(path).toString();
+  path = getValidatedPathToString(path);
   mode = getValidMode(mode, "access");
   const cb = makeCallback(callback);
 
-  // deno-lint-ignore deno-internal/prefer-primordials
-  Deno.lstat(path).then(
+  PromisePrototypeThen(
+    Deno.lstat(path),
     (info) => {
       if (info.mode === null) {
         cb(null);
@@ -1175,8 +1174,7 @@ function access(
       }
     },
     (err) => {
-      // deno-lint-ignore deno-internal/prefer-primordials
-      if (err instanceof Deno.errors.NotFound) {
+      if (ObjectPrototypeIsPrototypeOf(Deno.errors.NotFound.prototype, err)) {
         const e: any = new Error(
           `ENOENT: no such file or directory, access '${path}'`,
         );
@@ -1193,12 +1191,10 @@ function access(
 }
 
 function accessSync(path: string | Buffer | URL, mode?: number) {
-  // deno-lint-ignore deno-internal/prefer-primordials
-  path = getValidatedPath(path).toString();
+  path = getValidatedPathToString(path);
   mode = getValidMode(mode, "access");
   try {
-    // deno-lint-ignore deno-internal/prefer-primordials
-    const info = Deno.lstatSync(path.toString());
+    const info = Deno.lstatSync(path);
     if (info.mode === null) {
       return;
     }
@@ -1220,8 +1216,7 @@ function accessSync(path: string | Buffer | URL, mode?: number) {
       throw e;
     }
   } catch (err) {
-    // deno-lint-ignore deno-internal/prefer-primordials
-    if (err instanceof Deno.errors.NotFound) {
+    if (ObjectPrototypeIsPrototypeOf(Deno.errors.NotFound.prototype, err)) {
       const e: any = new Error(
         `ENOENT: no such file or directory, access '${path}'`,
       );
@@ -1316,13 +1311,12 @@ function chown(
   callback: CallbackWithError,
 ) {
   callback = makeCallback(callback);
-  // deno-lint-ignore deno-internal/prefer-primordials
-  path = getValidatedPath(path).toString();
+  path = getValidatedPathToString(path);
   validateInteger(uid, "uid", -1, kMaxUserId);
   validateInteger(gid, "gid", -1, kMaxUserId);
 
-  // deno-lint-ignore deno-internal/prefer-primordials
-  Deno.chown(path, uid, gid).then(
+  PromisePrototypeThen(
+    Deno.chown(path, uid, gid),
     () => callback(null),
     callback,
   );
@@ -1333,8 +1327,7 @@ function chownSync(
   uid: number,
   gid: number,
 ) {
-  // deno-lint-ignore deno-internal/prefer-primordials
-  path = getValidatedPath(path).toString();
+  path = getValidatedPathToString(path);
   validateInteger(uid, "uid", -1, kMaxUserId);
   validateInteger(gid, "gid", -1, kMaxUserId);
 
@@ -2526,8 +2519,8 @@ function write(
     }
     // deno-lint-ignore deno-internal/prefer-primordials
     validateOffsetLengthWrite(offset, length, buffer.byteLength);
-    // deno-lint-ignore deno-internal/prefer-primordials
-    innerWrite(fd, buffer, offset, length, position).then(
+    PromisePrototypeThen(
+      innerWrite(fd, buffer, offset, length, position),
       (nwritten) => {
         callback!(null, nwritten, buffer);
       },
@@ -2556,8 +2549,8 @@ function write(
   callback = maybeCallback(position);
   buffer = Buffer.from(str, length);
 
-  // deno-lint-ignore deno-internal/prefer-primordials
-  innerWrite(fd, buffer, 0, buffer.length, offset).then(
+  PromisePrototypeThen(
+    innerWrite(fd, buffer, 0, buffer.length, offset),
     (nwritten) => {
       callback(null, nwritten, buffer);
     },
@@ -2637,8 +2630,8 @@ function writev(
 
   if (typeof position !== "number") position = null;
 
-  // deno-lint-ignore deno-internal/prefer-primordials
-  innerWritev(fd, buffers, position).then(
+  PromisePrototypeThen(
+    innerWritev(fd, buffers, position),
     (nwritten) => callback(null, nwritten, buffers),
     (err) => callback(err),
   );
@@ -3076,8 +3069,7 @@ function utimes(
   mtime: number | string | Date,
   callback: CallbackWithError,
 ) {
-  // deno-lint-ignore deno-internal/prefer-primordials
-  path = getValidatedPath(path).toString();
+  path = getValidatedPathToString(path);
 
   if (!callback) {
     throw new Deno.errors.InvalidData("No callback function supplied");
@@ -3098,8 +3090,7 @@ function utimesSync(
   atime: number | string | Date,
   mtime: number | string | Date,
 ) {
-  // deno-lint-ignore deno-internal/prefer-primordials
-  path = getValidatedPath(path).toString();
+  path = getValidatedPathToString(path);
   atime = getValidTime(atime, "atime");
   mtime = getValidTime(mtime, "mtime");
 
@@ -3441,8 +3432,7 @@ function watch(
 
   validateIgnoreOption(options?.ignore, "options.ignore");
 
-  // deno-lint-ignore deno-internal/prefer-primordials
-  const watchPath = getValidatedPath(filename).toString();
+  const watchPath = getValidatedPathToString(filename);
 
   // Match Node: validate non-boolean `recursive`/`persistent` up front.
   // https://github.com/nodejs/node/blob/main/lib/internal/fs/recursive_watch.js
@@ -3587,8 +3577,7 @@ function watchPromise(
     ignore?: IgnoreOption;
   },
 ): AsyncIterable<{ eventType: string; filename: string | Buffer | null }> {
-  // deno-lint-ignore deno-internal/prefer-primordials
-  const watchPath = getValidatedPath(filename).toString();
+  const watchPath = getValidatedPathToString(filename);
 
   const recursive = options?.recursive ?? false;
   const signal = options?.signal;
@@ -3693,8 +3682,7 @@ function watchFile(
   listenerOrOptions: WatchFileListener | WatchFileOptions,
   listener?: WatchFileListener,
 ): StatWatcher {
-  // deno-lint-ignore deno-internal/prefer-primordials
-  const watchPath = getValidatedPath(filename).toString();
+  const watchPath = getValidatedPathToString(filename);
   const handler = typeof listenerOrOptions === "function"
     ? listenerOrOptions
     : listener!;
@@ -3720,8 +3708,7 @@ function unwatchFile(
   filename: string | Buffer | URL,
   listener?: WatchFileListener,
 ) {
-  // deno-lint-ignore deno-internal/prefer-primordials
-  const watchPath = getValidatedPath(filename).toString();
+  const watchPath = getValidatedPathToString(filename);
   const watcher = MapPrototypeGet(statWatchers, watchPath);
 
   if (!watcher) {

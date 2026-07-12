@@ -94,6 +94,7 @@ const {
   FunctionPrototypeApply,
   FunctionPrototypeBind,
   FunctionPrototypeCall,
+  JSONStringify,
   NumberIsFinite,
   NumberIsNaN,
   ObjectAssign,
@@ -498,12 +499,11 @@ class NodeWorker extends EventEmitter {
       // Pass as source code for execute_script (sloppy mode).
       // `require` is already available from the Node worker bootstrap.
       // See: https://github.com/denoland/deno/issues/26739
-      sourceCode = `var __filename = ${
-        // deno-lint-ignore deno-internal/prefer-primordials
-        JSON.stringify(lazyProcess().default.cwd() + "/[worker eval]")};\n` +
-        `var __dirname = ${
-          // deno-lint-ignore deno-internal/prefer-primordials
-          JSON.stringify(lazyProcess().default.cwd())};\n` +
+      sourceCode =
+        `var __filename = ${
+          JSONStringify(lazyProcess().default.cwd() + "/[worker eval]")
+        };\n` +
+        `var __dirname = ${JSONStringify(lazyProcess().default.cwd())};\n` +
         `var module = { exports: {} };\n` +
         `var exports = module.exports;\n` +
         code;

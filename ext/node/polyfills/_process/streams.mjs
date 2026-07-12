@@ -104,11 +104,9 @@ export function createWritableStdioStream(writer, name, warmup = false) {
   });
   let fd = -1;
 
-  // deno-lint-ignore deno-internal/prefer-primordials
-  if (writer instanceof io.Stdout) {
+  if (ObjectPrototypeIsPrototypeOf(io.Stdout.prototype, writer)) {
     fd = io.STDOUT_RID;
-    // deno-lint-ignore deno-internal/prefer-primordials
-  } else if (writer instanceof io.Stderr) {
+  } else if (ObjectPrototypeIsPrototypeOf(io.Stderr.prototype, writer)) {
     fd = io.STDERR_RID;
   }
   stream.fd = fd;

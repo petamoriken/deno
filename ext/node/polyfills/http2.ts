@@ -35,10 +35,12 @@ const {
   ReflectGet,
   ReflectGetPrototypeOf,
   ReflectSet,
+  MapPrototypeForEach,
   SafeArrayIterator,
   SafeMap,
   SafeRegExp,
   SafeSet,
+  SafeSetIterator,
   StringPrototypeCharCodeAt,
   StringPrototypeIndexOf,
   StringPrototypeSlice,
@@ -2053,21 +2055,20 @@ class Http2Stream extends Duplex {
     };
     handle.writev = function (req, chunks, allBuffers) {
       const count = allBuffers ? chunks.length : chunks.length >> 1;
-      // deno-lint-ignore deno-internal/prefer-primordials
-      const buffers = new Array(count);
+      const buffers = [];
       if (!allBuffers) {
         for (let i = 0; i < count; i++) {
           const chunk = chunks[i * 2];
           if (Buffer.isBuffer(chunk)) {
-            buffers[i] = chunk;
+            ArrayPrototypePush(buffers, chunk);
           } else {
             const encoding = chunks[i * 2 + 1];
-            buffers[i] = Buffer.from(chunk, encoding);
+            ArrayPrototypePush(buffers, Buffer.from(chunk, encoding));
           }
         }
       } else {
         for (let i = 0; i < count; i++) {
-          buffers[i] = chunks[i];
+          ArrayPrototypePush(buffers, chunks[i]);
         }
       }
       // deno-lint-ignore deno-internal/prefer-primordials
@@ -3638,10 +3639,11 @@ function setupHandle(socket, type, options) {
       const closeCode = goawayCode === NGHTTP2_FLOW_CONTROL_ERROR
         ? NGHTTP2_FLOW_CONTROL_ERROR
         : NGHTTP2_CANCEL;
-      // deno-lint-ignore deno-internal/prefer-primordials
-      state.streams.forEach((stream) => stream.close(closeCode));
-      // deno-lint-ignore deno-internal/prefer-primordials
-      state.pendingStreams.forEach((stream) => stream.close(NGHTTP2_CANCEL));
+      MapPrototypeForEach(state.streams, (stream) => stream.close(closeCode));
+      MapPrototypeForEach(
+        state.pendingStreams,
+        (stream) => stream.close(NGHTTP2_CANCEL),
+      );
       if (!session.closed) {
         session.close();
       }
@@ -3861,10 +3863,11 @@ function closeSession(session, code, error) {
   // the GOAWAY above to preserve wire order.
   if (state.pendingStreams.size > 0 || state.streams.size > 0) {
     const cancel = new ERR_HTTP2_STREAM_CANCEL(error);
-    // deno-lint-ignore deno-internal/prefer-primordials
-    state.pendingStreams.forEach((stream) => stream.destroy(cancel));
-    // deno-lint-ignore deno-internal/prefer-primordials
-    state.streams.forEach((stream) => stream.destroy(error));
+    MapPrototypeForEach(
+      state.pendingStreams,
+      (stream) => stream.destroy(cancel),
+    );
+    MapPrototypeForEach(state.streams, (stream) => stream.destroy(error));
   }
 
   // Destroy the handle if it exists at this point.
@@ -3908,10 +3911,14 @@ function socketOnClose() {
     debugSessionObj(session, "socket closed");
     const err = session.connecting ? new ERR_SOCKET_CLOSED() : null;
     const state = session[kState];
-    // deno-lint-ignore deno-internal/prefer-primordials
-    state.streams.forEach((stream) => stream.close(NGHTTP2_CANCEL));
-    // deno-lint-ignore deno-internal/prefer-primordials
-    state.pendingStreams.forEach((stream) => stream.close(NGHTTP2_CANCEL));
+    MapPrototypeForEach(
+      state.streams,
+      (stream) => stream.close(NGHTTP2_CANCEL),
+    );
+    MapPrototypeForEach(
+      state.pendingStreams,
+      (stream) => stream.close(NGHTTP2_CANCEL),
+    );
     session.close();
     // Route through kMaybeDestroy -> destroy(err) so the `if (this.destroyed)`
     // guard in destroy() prevents a second emit("close") when the Rust-side
@@ -5104,8 +5111,7 @@ function onErrorSecureServerSession(err, socket) {
 function closeAllSessions(server) {
   const sessions = server[kSessions];
   if (sessions.size > 0) {
-    // deno-lint-ignore deno-internal/prefer-primordials
-    for (const session of sessions) {
+    for (const session of new SafeSetIterator(sessions)) {
       session.close();
     }
   }

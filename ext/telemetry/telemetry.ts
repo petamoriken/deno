@@ -59,11 +59,13 @@ const {
   ObjectValues,
   ReflectApply,
   SafeArrayIterator,
+  Promise,
   SafeMap,
   SafeMapIterator,
   SafePromiseAll,
   SafeRegExp,
   SafeSet,
+  SafeSetIterator,
   SafeWeakSet,
   StringPrototypeIndexOf,
   StringPrototypeSlice,
@@ -1151,24 +1153,31 @@ async function observe(): Promise<void> {
   }
 
   const promises: Promise<void>[] = [];
-  // Primordials are not needed, because this is a SafeMap.
-  // deno-lint-ignore deno-internal/prefer-primordials
-  for (const { 0: observable, 1: callbacks } of INDIVIDUAL_CALLBACKS) {
+  for (
+    const { 0: observable, 1: callbacks } of new SafeMapIterator(
+      INDIVIDUAL_CALLBACKS,
+    )
+  ) {
     const result = getObservableResult(observable);
-    // Primordials are not needed, because this is a SafeSet.
-    // deno-lint-ignore deno-internal/prefer-primordials
-    for (const callback of callbacks) {
-      // PromiseTry is not in primordials?
-      // deno-lint-ignore deno-internal/prefer-primordials
-      ArrayPrototypePush(promises, Promise.try(callback, result));
+    for (const callback of new SafeSetIterator(callbacks)) {
+      // Equivalent to Promise.try(callback, result) (no PromiseTry primordial).
+      ArrayPrototypePush(
+        promises,
+        new Promise((resolve) => {
+          resolve(callback(result));
+        }),
+      );
     }
   }
-  // Primordials are not needed, because this is a SafeMap.
-  // deno-lint-ignore deno-internal/prefer-primordials
-  for (const { 0: callback, 1: result } of BATCH_CALLBACKS) {
-    // PromiseTry is not in primordials?
-    // deno-lint-ignore deno-internal/prefer-primordials
-    ArrayPrototypePush(promises, Promise.try(callback, result));
+  for (
+    const { 0: callback, 1: result } of new SafeMapIterator(BATCH_CALLBACKS)
+  ) {
+    ArrayPrototypePush(
+      promises,
+      new Promise((resolve) => {
+        resolve(callback(result));
+      }),
+    );
   }
   await SafePromiseAll(promises);
 }

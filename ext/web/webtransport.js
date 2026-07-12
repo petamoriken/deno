@@ -46,6 +46,7 @@ const {
   PromiseResolve,
   PromisePrototypeThen,
   PromisePrototypeCatch,
+  PromiseWithResolvers,
   RangeError,
   ReflectConstruct,
   Symbol,
@@ -156,8 +157,7 @@ class WebTransport {
   #conn;
   #promise;
   #ready;
-  // deno-lint-ignore deno-internal/prefer-primordials
-  #closed = Promise.withResolvers();
+  #closed = PromiseWithResolvers();
   #settingsTx;
   #settingsRx;
   #connect;
@@ -897,8 +897,7 @@ class WebTransportDatagramDuplexStream {
           assert(this.#incomingDatagramsPullPromise === null);
           const queue = this.#incomingDatagramsQueue;
           if (queue.length === 0) {
-            // deno-lint-ignore deno-internal/prefer-primordials
-            this.#incomingDatagramsPullPromise = Promise.withResolvers();
+            this.#incomingDatagramsPullPromise = PromiseWithResolvers();
             return this.#incomingDatagramsPullPromise.promise;
           }
           const { datagram } = ArrayPrototypeShift(queue);

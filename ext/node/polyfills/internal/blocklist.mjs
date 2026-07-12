@@ -342,8 +342,7 @@ class SocketAddress {
     } = options;
 
     if (typeof family === "string") {
-      // deno-lint-ignore deno-internal/prefer-primordials
-      family = family.toLowerCase();
+      family = StringPrototypeToLowerCase(family);
     }
     switch (family) {
       case "ipv4":
