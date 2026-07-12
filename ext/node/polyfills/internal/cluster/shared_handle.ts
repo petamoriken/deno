@@ -3,8 +3,7 @@
 
 // Ports lib/internal/cluster/shared_handle.js.
 
-// TODO(petamoriken): enable prefer-primordials for node polyfills
-// deno-lint-ignore-file no-explicit-any deno-internal/prefer-primordials
+// deno-lint-ignore-file no-explicit-any
 
 (function () {
 const { core, primordials } = __bootstrap;
@@ -13,7 +12,7 @@ const { codeMap } = core.loadExtScript(
   "ext:deno_node/internal_binding/uv.ts",
 );
 
-const { SafeMap } = primordials;
+const { Error, SafeMap } = primordials;
 
 function SharedHandle(
   this: any,

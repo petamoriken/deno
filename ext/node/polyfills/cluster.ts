@@ -8,11 +8,10 @@
 // via the `__initCluster` callback (after triggering this script when
 // NODE_UNIQUE_ID is set).
 
-// TODO(petamoriken): enable prefer-primordials for node polyfills
-// deno-lint-ignore-file no-explicit-any deno-internal/prefer-primordials
+// deno-lint-ignore-file no-explicit-any
 
 (function () {
-const { core, internals } = __bootstrap;
+const { core, internals, primordials } = __bootstrap;
 const { EventEmitter } = core.loadExtScript("ext:deno_node/_events.mjs");
 const { init: initPrimary } = core.loadExtScript(
   "ext:deno_node/internal/cluster/primary.ts",
@@ -20,6 +19,7 @@ const { init: initPrimary } = core.loadExtScript(
 const { init: initChild } = core.loadExtScript(
   "ext:deno_node/internal/cluster/child.ts",
 );
+const { Number, NumberIsNaN } = primordials;
 
 const cluster: any = new EventEmitter();
 initPrimary(cluster);
@@ -41,7 +41,7 @@ internals.__initCluster = (
       cluster.schedulingPolicy = cluster.SCHED_NONE;
     } else {
       const n = Number(schedPolicyEnv);
-      if (!Number.isNaN(n)) {
+      if (!NumberIsNaN(n)) {
         cluster.schedulingPolicy = n;
       }
     }

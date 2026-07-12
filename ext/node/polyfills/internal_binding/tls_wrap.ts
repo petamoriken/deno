@@ -1,15 +1,26 @@
 // Copyright 2018-2026 the Deno authors. MIT license.
-// deno-lint-ignore-file no-explicit-any deno-internal/prefer-primordials
+// deno-lint-ignore-file no-explicit-any
 (function () {
-const { core } = __bootstrap;
+const { core, primordials } = __bootstrap;
 const { PipeWrap, TLSWrap } = core.ops;
 const { kReadBytesOrError, streamBaseState } = core.loadExtScript(
   "ext:deno_node/internal_binding/stream_wrap.ts",
 );
+const {
+  ArrayBufferPrototype,
+  Error,
+  FunctionPrototypeApply,
+  ObjectPrototypeIsPrototypeOf,
+  PromisePrototypeThen,
+  PromiseResolve,
+  SymbolFor,
+  TypedArrayPrototypeGetByteLength,
+  Uint8Array,
+} = primordials;
 // Use Symbol.for to access symbols from js_stream_socket.js
 // without importing it (avoids circular dependency).
-const kJSStreamHandle = Symbol.for("kJSStreamHandle");
-const kOwner = Symbol.for("kJSStreamOwner");
+const kJSStreamHandle = SymbolFor("kJSStreamHandle");
+const kOwner = SymbolFor("kJSStreamOwner");
 
 function installNativeOnread(res: TLSWrap, nativeHandle: any) {
   nativeHandle.onread = function (
@@ -18,9 +29,9 @@ function installNativeOnread(res: TLSWrap, nativeHandle: any) {
     const nread = streamBaseState[kReadBytesOrError];
     if (nread > 0 && buf) {
       // LibUvStreamWrap passes an ArrayBuffer; convert to Uint8Array for receive()
-      const data = buf instanceof ArrayBuffer
-        ? new Uint8Array(buf, 0, nread)
-        : buf.subarray(0, nread);
+      const data = ObjectPrototypeIsPrototypeOf(ArrayBufferPrototype, buf)
+        ? new Uint8Array(buf as ArrayBuffer, 0, nread)
+        : (buf as Uint8Array).subarray(0, nread);
       res.receive(data);
     } else if (nread < 0) {
       // EOF or error - stop native TCP reads and unref the handle.
@@ -34,7 +45,10 @@ function installNativeOnread(res: TLSWrap, nativeHandle: any) {
 }
 
 function attachNativeHandle(res: TLSWrap, nativeHandle: any) {
-  const attachResult = nativeHandle instanceof PipeWrap
+  const attachResult = ObjectPrototypeIsPrototypeOf(
+      PipeWrap.prototype,
+      nativeHandle,
+    )
     ? res.attachPipe(nativeHandle)
     : res.attach(nativeHandle);
   if (attachResult !== 0) {
@@ -121,13 +135,13 @@ function wrap(
     const pump = () => {
       if (writeInFlight || !jsStreamOwner?.stream) return;
       let data = res.drainEncOut();
-      if (!data || data.byteLength === 0) {
+      if (!data || TypedArrayPrototypeGetByteLength(data) === 0) {
         // No buffered encrypted output. Drive cycle() to fire
         // InvokeQueued for any queued cleartext write and to produce
         // more encrypted output if clear_in() was rate-limited.
         res.readBuffer(new Uint8Array(0));
         data = res.drainEncOut();
-        if (!data || data.byteLength === 0) return;
+        if (!data || TypedArrayPrototypeGetByteLength(data) === 0) return;
       }
       writeInFlight = true;
       jsStreamOwner.stream.write(new Uint8Array(data), () => {
@@ -140,7 +154,7 @@ function wrap(
       flushPending = true;
       // Defer to a microtask so synchronous feedback loops through
       // DuplexPair don't reenter cycle() while it's still running.
-      Promise.resolve().then(() => {
+      PromisePrototypeThen(PromiseResolve(), () => {
         flushPending = false;
         pump();
       });
@@ -157,7 +171,7 @@ function wrap(
     const origShutdown = res.shutdown;
     if (typeof origShutdown === "function") {
       res.shutdown = function (...args: any[]) {
-        const ret = origShutdown.apply(res, args);
+        const ret = FunctionPrototypeApply(origShutdown, res, args);
         flushEncOut();
         return ret;
       };

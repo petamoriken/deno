@@ -20,13 +20,21 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-// deno-lint-ignore-file no-explicit-any deno-internal/prefer-primordials
+// deno-lint-ignore-file no-explicit-any
 
 (function () {
-const { core } = __bootstrap;
+const { core, primordials } = __bootstrap;
 const { HTTPParser: NativeHTTPParser } = core.ops;
 const { Buffer } = core.loadExtScript("ext:deno_node/internal/buffer.mjs");
 const { AsyncResource } = core.loadExtScript("ext:deno_node/async_hooks.ts");
+const {
+  Error,
+  FunctionPrototypeCall,
+  TypedArrayPrototypeGetBuffer,
+  TypedArrayPrototypeGetByteLength,
+  TypedArrayPrototypeGetByteOffset,
+  Uint8Array,
+} = primordials;
 
 // Method names indexed by llhttp method enum values.
 // Order must match llhttp_method_t in llhttp.h.
@@ -196,9 +204,14 @@ HTTPParser.prototype.execute = function (
   const origOnBody = this[kOnBody];
   if (origOnBody) {
     this[kOnBody] = function (buf: Uint8Array) {
-      return origOnBody.call(
+      return FunctionPrototypeCall(
+        origOnBody,
         parser,
-        Buffer.from(buf.buffer, buf.byteOffset, buf.byteLength),
+        Buffer.from(
+          TypedArrayPrototypeGetBuffer(buf),
+          TypedArrayPrototypeGetByteOffset(buf),
+          TypedArrayPrototypeGetByteLength(buf),
+        ),
       );
     };
   }
@@ -211,7 +224,11 @@ HTTPParser.prototype.execute = function (
   const doExecute = () =>
     this._native.execute(
       this,
-      new Uint8Array(data.buffer, data.byteOffset, data.byteLength),
+      new Uint8Array(
+        TypedArrayPrototypeGetBuffer(data),
+        TypedArrayPrototypeGetByteOffset(data),
+        TypedArrayPrototypeGetByteLength(data),
+      ),
     );
   const result = this._asyncResource
     ? this._asyncResource.runInAsyncScope(doExecute)

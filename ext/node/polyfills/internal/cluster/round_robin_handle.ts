@@ -3,8 +3,7 @@
 
 // Ports lib/internal/cluster/round_robin_handle.js.
 
-// TODO(petamoriken): enable prefer-primordials for node polyfills
-// deno-lint-ignore-file no-explicit-any deno-internal/prefer-primordials
+// deno-lint-ignore-file no-explicit-any
 
 (function () {
 const { core, primordials } = __bootstrap;
@@ -29,7 +28,14 @@ const {
   setupListenWrap: setupPipeListenWrap,
 } = core.loadExtScript("ext:deno_node/internal_binding/pipe_wrap.ts");
 
-const { ArrayIsArray, Boolean, SafeMap } = primordials;
+const {
+  ArrayIsArray,
+  Boolean,
+  Error,
+  ObjectPrototypeIsPrototypeOf,
+  SafeMap,
+  SafeMapIterator,
+} = primordials;
 
 function RoundRobinHandle(
   this: any,
@@ -73,9 +79,9 @@ function RoundRobinHandle(
     // bindings. Re-run setupListenWrap with the new user callback.
     this.handle.onconnection = (err: number, handle: any) =>
       this.distribute(err, handle);
-    if (this.handle instanceof TCP) {
+    if (ObjectPrototypeIsPrototypeOf(TCP.prototype, this.handle)) {
       setupTCPListenWrap(this.handle);
-    } else if (this.handle instanceof Pipe) {
+    } else if (ObjectPrototypeIsPrototypeOf(Pipe.prototype, this.handle)) {
       setupPipeListenWrap(this.handle);
     }
     this.server._handle = null;
@@ -150,11 +156,15 @@ RoundRobinHandle.prototype.distribute = function (
     return;
   }
   append(this.handles, handle);
-  // Destructures the first `[key, value]` entry from the SafeMap iterator;
-  // `workerEntry` is `undefined` if `this.free` is empty. The `ArrayIsArray`
-  // guard (inherited from Node's port) is just a non-empty check -- map
-  // entries are always 2-tuples.
-  const [workerEntry] = this.free;
+  // First `[key, value]` entry from the SafeMap iterator; `workerEntry` is
+  // `undefined` if `this.free` is empty. The `ArrayIsArray` guard (inherited
+  // from Node's port) is just a non-empty check -- map entries are always
+  // 2-tuples.
+  let workerEntry: any;
+  for (const entry of new SafeMapIterator(this.free)) {
+    workerEntry = entry;
+    break;
+  }
 
   if (ArrayIsArray(workerEntry)) {
     const { 0: workerId, 1: worker } = workerEntry;

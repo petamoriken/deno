@@ -1,16 +1,25 @@
 // Copyright 2018-2026 the Deno authors. MIT license.
 // Copyright Joyent, Inc. and Node.js contributors. All rights reserved. MIT license.
 
-// TODO(petamoriken): enable prefer-primordials for node polyfills
-// deno-lint-ignore-file no-explicit-any deno-internal/prefer-primordials
+// deno-lint-ignore-file no-explicit-any
 
 (function () {
-const { core } = __bootstrap;
+const { core, primordials } = __bootstrap;
+const {
+  ArrayPrototypeIncludes,
+  MathFloor,
+  ObjectDefineProperty,
+  PromisePrototypeThen,
+} = primordials;
 const {
   PrivateKeyObject,
   PublicKeyObject,
   SecretKeyObject,
 } = core.loadExtScript("ext:deno_node/internal/crypto/keys.ts");
+const {
+  isAnyArrayBuffer,
+  isArrayBufferView,
+} = core.loadExtScript("ext:deno_node/internal/util/types.ts");
 const { kAesKeyLengths } = core.loadExtScript(
   "ext:deno_node/internal/crypto/util.ts",
 );
@@ -103,7 +112,7 @@ function generateKeySync(
   validateGenerateKey(type, options);
   const { length } = options;
 
-  const len = Math.floor(length / 8);
+  const len = MathFloor(length / 8);
 
   const handle = op_node_generate_secret_key(len);
 
@@ -121,11 +130,14 @@ function generateKey(
   validateFunction(callback, "callback");
   const { length } = options;
 
-  const len = Math.floor(length / 8);
+  const len = MathFloor(length / 8);
 
-  op_node_generate_secret_key_async(len).then((handle) => {
-    callback(null, new SecretKeyObject(handle));
-  });
+  PromisePrototypeThen(
+    op_node_generate_secret_key_async(len),
+    (handle) => {
+      callback(null, new SecretKeyObject(handle));
+    },
+  );
 }
 
 function generateKeyPair(
@@ -143,38 +155,42 @@ function generateKeyPair(
   }
   validateFunction(callback, "callback");
 
-  _generateKeyPair(type, options)
-    .then(
-      (res) => callback!(null, res.publicKey, res.privateKey),
-      (err) => callback!(err, null, null),
-    );
+  PromisePrototypeThen(
+    _generateKeyPair(type, options),
+    (res) => callback!(null, res.publicKey, res.privateKey),
+    (err) => callback!(err, null, null),
+  );
 }
 
 function _generateKeyPair(type: string, options: unknown) {
-  return createJob(kAsync, type, options).then((pair) => {
-    const privateKeyHandle = op_node_get_private_key_from_pair(pair);
-    const publicKeyHandle = op_node_get_public_key_from_pair(pair);
+  return PromisePrototypeThen(
+    createJob(kAsync, type, options),
+    (pair) => {
+      const privateKeyHandle = op_node_get_private_key_from_pair(pair);
+      const publicKeyHandle = op_node_get_public_key_from_pair(pair);
 
-    let privateKey = new PrivateKeyObject(privateKeyHandle);
-    let publicKey = new PublicKeyObject(publicKeyHandle);
+      let privateKey = new PrivateKeyObject(privateKeyHandle);
+      let publicKey = new PublicKeyObject(publicKeyHandle);
 
-    if (typeof options === "object" && options !== null) {
-      const { publicKeyEncoding, privateKeyEncoding } = options as any;
+      if (typeof options === "object" && options !== null) {
+        const { publicKeyEncoding, privateKeyEncoding } = options as any;
 
-      if (publicKeyEncoding) {
-        publicKey = publicKey.export(publicKeyEncoding);
+        if (publicKeyEncoding) {
+          publicKey = publicKey.export(publicKeyEncoding);
+        }
+
+        if (privateKeyEncoding) {
+          privateKey = privateKey.export(privateKeyEncoding);
+        }
       }
 
-      if (privateKeyEncoding) {
-        privateKey = privateKey.export(privateKeyEncoding);
-      }
-    }
-
-    return { publicKey, privateKey };
-  });
+      return { publicKey, privateKey };
+    },
+  );
 }
 
-Object.defineProperty(generateKeyPair, promisify.custom, {
+ObjectDefineProperty(generateKeyPair, promisify.custom, {
+  __proto__: null,
   enumerable: false,
   value: _generateKeyPair,
 });
@@ -268,9 +284,8 @@ function option(name: string, objName?: string): string {
 
 function isStringOrBuffer(val: unknown): boolean {
   return typeof val === "string" ||
-    ArrayBuffer.isView(val) ||
-    val instanceof ArrayBuffer ||
-    val instanceof SharedArrayBuffer;
+    isArrayBufferView(val) ||
+    isAnyArrayBuffer(val);
 }
 
 function parseKeyFormatAndType(
@@ -331,7 +346,7 @@ function parsePrivateKeyEncoding(
     if (typeof cipher !== "string") {
       throw new ERR_INVALID_ARG_VALUE(option("cipher", objName), cipher);
     }
-    if (!getCiphers().includes(cipher)) {
+    if (!ArrayPrototypeIncludes(getCiphers(), cipher)) {
       throw new ERR_CRYPTO_UNKNOWN_CIPHER();
     }
     if (
@@ -438,13 +453,13 @@ function createJob(mode, type, options) {
       }
       if (hashAlgorithm !== undefined) {
         validateString(hashAlgorithm, "options.hashAlgorithm");
-        if (!getHashes().includes(hashAlgorithm)) {
+        if (!ArrayPrototypeIncludes(getHashes(), hashAlgorithm)) {
           throw new ERR_CRYPTO_INVALID_DIGEST(hashAlgorithm);
         }
       }
       if (mgf1HashAlgorithm !== undefined) {
         validateString(mgf1HashAlgorithm, "options.mgf1HashAlgorithm");
-        if (!getHashes().includes(mgf1HashAlgorithm)) {
+        if (!ArrayPrototypeIncludes(getHashes(), mgf1HashAlgorithm)) {
           throw new ERR_CRYPTO_INVALID_DIGEST(mgf1HashAlgorithm, "MGF1");
         }
       }

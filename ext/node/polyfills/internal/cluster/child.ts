@@ -6,8 +6,7 @@
 // `primary.init` or `child.init` runs in a given process; the choice is
 // driven by NODE_UNIQUE_ID through `cluster.ts`'s dispatch.
 
-// TODO(petamoriken): enable prefer-primordials for node polyfills
-// deno-lint-ignore-file no-explicit-any deno-internal/prefer-primordials
+// deno-lint-ignore-file no-explicit-any
 
 (function () {
 const { core, primordials } = __bootstrap;
@@ -31,6 +30,7 @@ const {
   ObjectAssign,
   ReflectApply,
   SafeMap,
+  SafeMapIterator,
   SafeSet,
 } = primordials;
 
@@ -293,7 +293,7 @@ function init(cluster: any) {
       }
     }
 
-    for (const handle of handles.values()) {
+    for (const { 1: handle } of new SafeMapIterator(handles)) {
       waitingCount++;
       // Match Node: prefer closing through the owning net.Server (which
       // ends connections gracefully) over the bare cluster fake handle's

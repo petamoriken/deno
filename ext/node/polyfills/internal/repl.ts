@@ -7,13 +7,23 @@
 // exercises is `createInternalRepl(env, opts, cb)` plus the public
 // re-exports of node:repl.
 
-// deno-lint-ignore-file no-explicit-any deno-internal/prefer-primordials
+// deno-lint-ignore-file no-explicit-any
 
-import { core } from "ext:core/mod.js";
+import { core, primordials } from "ext:core/mod.js";
 const lazyREPL = core.createLazyLoader("node:repl");
 const lazyProcess = core.createLazyLoader("node:process");
+const {
+  Number,
+  NumberIsNaN,
+  NumberParseInt,
+  ObjectCreate,
+  ObjectHasOwn,
+  StringPrototypeToLowerCase,
+  StringPrototypeTrim,
+  SymbolFor,
+} = primordials;
 
-const kStandaloneREPL = Symbol.for("nodejs.repl.kStandaloneREPL");
+const kStandaloneREPL = SymbolFor("nodejs.repl.kStandaloneREPL");
 
 function createRepl(
   env: Record<string, string | undefined>,
@@ -32,12 +42,14 @@ function createRepl(
     ...opts,
   };
 
-  if (env && env.NODE_NO_READLINE && Number.parseInt(env.NODE_NO_READLINE)) {
+  if (env && env.NODE_NO_READLINE && NumberParseInt(env.NODE_NO_READLINE)) {
     opts.terminal = false;
   }
 
   if (env && env.NODE_REPL_MODE) {
-    const mode = env.NODE_REPL_MODE.toLowerCase().trim();
+    const mode = StringPrototypeTrim(
+      StringPrototypeToLowerCase(env.NODE_REPL_MODE),
+    );
     opts.replMode = (lazyREPL().default as any)[
       mode === "strict" ? "REPL_MODE_STRICT" : "REPL_MODE_SLOPPY"
     ];
@@ -47,13 +59,13 @@ function createRepl(
   }
 
   const size = Number(env?.NODE_REPL_HISTORY_SIZE);
-  if (!Number.isNaN(size) && size > 0) {
+  if (!NumberIsNaN(size) && size > 0) {
     opts.size = size;
   } else {
     opts.size = 1000;
   }
 
-  const term = "terminal" in opts
+  const term = ObjectHasOwn(opts, "terminal")
     ? opts.terminal
     : (lazyProcess().default as any).stdout?.isTTY;
   opts.filePath = term ? env?.NODE_REPL_HISTORY : "";
@@ -68,7 +80,7 @@ function createRepl(
   });
 }
 
-const exported: any = Object.create(lazyREPL().default);
+const exported: any = ObjectCreate(lazyREPL().default);
 exported.createInternalRepl = createRepl;
 
 export default exported;

@@ -6,8 +6,7 @@
 // `primary.init` or `child.init` runs in a given process; the choice is
 // driven by NODE_UNIQUE_ID through `cluster.ts`'s dispatch.
 
-// TODO(petamoriken): enable prefer-primordials for node polyfills
-// deno-lint-ignore-file no-explicit-any deno-internal/prefer-primordials
+// deno-lint-ignore-file no-explicit-any
 
 (function () {
 const { core, primordials } = __bootstrap;
@@ -32,10 +31,18 @@ const { SharedHandle } = core.loadExtScript(
 );
 
 const {
+  ArrayPrototypeFind,
+  ArrayPrototypePush,
   ArrayPrototypeSlice,
+  Error,
+  ObjectHasOwn,
   ObjectKeys,
   ObjectValues,
+  RegExpPrototypeTest,
+  SafeArrayIterator,
   SafeMap,
+  SafeMapIterator,
+  SafeRegExp,
 } = primordials;
 
 const SCHED_NONE = 1;
@@ -49,7 +56,11 @@ const maxPort = 65535;
 // Matches the inspector activation/port flags Node looks for. Mirrors the
 // `debugArgRegex` in lib/internal/cluster/primary.js, which also matches
 // `--inspect-wait` via its `--inspect` prefix.
-const debugArgRegex = /--inspect(?:-brk|-port|-wait)?|--debug-port/;
+const debugArgRegex = new SafeRegExp(
+  /--inspect(?:-brk|-port|-wait)?|--debug-port/,
+);
+const inspectBrkRegex = new SafeRegExp(/--inspect-brk\b/);
+const inspectWaitRegex = new SafeRegExp(/--inspect-wait\b/);
 let debugPortOffset = 1;
 
 let initialized = false;
@@ -137,7 +148,7 @@ function init(cluster: any) {
       workerEnv.NODE_CLUSTER_SCHED_POLICY = "none";
     }
 
-    const execArgv = [...(cluster.settings.execArgv || [])];
+    const execArgv = ArrayPrototypeSlice(cluster.settings.execArgv || []);
 
     // If the inspector is activated (via execArgv or the inherited
     // NODE_OPTIONS), give each worker its own port so they don't all try to
@@ -148,12 +159,16 @@ function init(cluster: any) {
     // flag takes precedence over the inherited NODE_OPTIONS one, so the worker
     // ends up bound to the unique port.
     const nodeOptions = (process as any).env.NODE_OPTIONS ?? "";
-    const inspectSource =
-      execArgv.find((arg: string) => debugArgRegex.test(arg)) ??
-        (debugArgRegex.test(nodeOptions) ? nodeOptions : undefined);
+    const inspectSource = ArrayPrototypeFind(
+      execArgv,
+      (arg: string) => RegExpPrototypeTest(debugArgRegex, arg),
+    ) ??
+      (RegExpPrototypeTest(debugArgRegex, nodeOptions)
+        ? nodeOptions
+        : undefined);
     if (inspectSource !== undefined) {
       let inspectPort;
-      if ("inspectPort" in cluster.settings) {
+      if (ObjectHasOwn(cluster.settings, "inspectPort")) {
         inspectPort = typeof cluster.settings.inspectPort === "function"
           ? cluster.settings.inspectPort()
           : cluster.settings.inspectPort;
@@ -166,12 +181,12 @@ function init(cluster: any) {
       }
       // A falsy port (e.g. 0) means "pick a free port"; leave it to the worker.
       if (inspectPort) {
-        const flag = /--inspect-brk\b/.test(inspectSource)
+        const flag = RegExpPrototypeTest(inspectBrkRegex, inspectSource)
           ? "--inspect-brk"
-          : /--inspect-wait\b/.test(inspectSource)
+          : RegExpPrototypeTest(inspectWaitRegex, inspectSource)
           ? "--inspect-wait"
           : "--inspect";
-        execArgv.push(`${flag}=127.0.0.1:${inspectPort}`);
+        ArrayPrototypePush(execArgv, `${flag}=127.0.0.1:${inspectPort}`);
       }
     }
 
@@ -204,7 +219,7 @@ function init(cluster: any) {
   function removeHandlesForWorker(worker: any) {
     if (!worker) return;
 
-    for (const [key, handle] of handles) {
+    for (const { 0: key, 1: handle } of new SafeMapIterator(handles)) {
       if (handle.remove(worker)) {
         handles.delete(key);
       }
@@ -265,7 +280,7 @@ function init(cluster: any) {
     if (workers.length === 0) {
       process.nextTick(() => intercom.emit("disconnect"));
     } else {
-      for (const worker of workers) {
+      for (const worker of new SafeArrayIterator(workers)) {
         if ((worker as any).isConnected()) {
           (worker as any).disconnect();
         }
