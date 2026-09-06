@@ -645,8 +645,19 @@ declare namespace Deno {
 
     /** Physical pixels per CSS pixel for this window, like
      * [`window.devicePixelRatio`](https://developer.mozilla.org/docs/Web/API/Window/devicePixelRatio).
-     * Updates when the window moves to a display with a different scale. */
+     * Updates when the window moves to a display with a different scale.
+     * Observe that with {@linkcode BrowserWindow.matchMedia}, not
+     * {@linkcode BrowserWindowEventMap.resize}. */
     readonly devicePixelRatio: number;
+
+    /** [`window.matchMedia`](https://developer.mozilla.org/docs/Web/API/Window/matchMedia)
+     * for this window. `change` fires when a move or resize crosses the
+     * query, including a move onto a display with a different
+     * {@linkcode BrowserWindow.devicePixelRatio}. Understands `width`,
+     * `height`, `aspect-ratio`, `orientation`, `resolution`, and
+     * `-webkit-device-pixel-ratio` / `device-pixel-ratio`, including
+     * Media Queries Level 4 range syntax. */
+    matchMedia(query: string): MediaQueryList;
 
     getPosition(): [number, number];
     setPosition(x: number, y: number): void;
